@@ -1,7 +1,10 @@
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const qrcode = require('qrcode-terminal');
 const express = require('express');
 const cors = require('cors');
+const pino = require('pino');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
@@ -14,11 +17,15 @@ const ultimoInvioUtente = {};
 const COOLDOWN_MINUTI = 30;
 
 async function connectToWhatsApp() {
+    // Sincronizza le versioni ufficiali per evitare l'errore di Noise Handshake
+    const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     sock = makeWASocket({
+        version,
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"]
+        logger: pino({ level: 'silent' }), // Zittisce i log JSON rumorosi
+        browser: ['IGMBC Bot', 'Chrome', '1.0.0']
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -26,14 +33,19 @@ async function connectToWhatsApp() {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
+        // Stampa il QR code nel terminale quando richiesto
         if (qr) {
-            console.log('--- COPIA E INCOLLA IL TESTO SOTTO SU HTTP://SCANQR.ORG ---');
-            console.log(qr);
-            console.log('---------------------------------------------------------');
+            console.log('\n========================================');
+            console.log('📱 SCANSIONA IL QR CODE CON WHATSAPP:');
+            console.log('========================================\n');
+            qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'open') {
+            console.log('\n========================================');
             console.log('✅ BOT WHATSAPP COLLEGATO E PRONTO!');
+            console.log('========================================\n');
+            
             try {
                 const groupList = await sock.groupFetchAllParticipating();
                 for (const id in groupList) {
@@ -50,9 +62,16 @@ async function connectToWhatsApp() {
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            if (statusCode !== DisconnectReason.loggedOut) {
-                setTimeout(connectToWhatsApp, 3000);
+            const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+            
+            console.log(`🔌 Connessione chiusa (Status: ${statusCode}). Riconnessione...`);
+
+            if (isLoggedOut) {
+                // Rimuove credenziali corrotte se sconnesso
+                fs.rmSync('auth_info_baileys', { recursive: true, force: true });
             }
+            
+            setTimeout(connectToWhatsApp, 3000);
         }
     });
 }
