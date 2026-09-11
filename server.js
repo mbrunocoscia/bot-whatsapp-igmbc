@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cors());
 
 // --- INSERISCI QUI IL TUO NUMERO WHATSAPP CON PREFISSO 39 SENZA '+' O SPAZI ---
-const NUMERO_TELEFONO = "393331234567"; // <--- CAMBIA QUESTO NUMERO!
+const NUMERO_TELEFONO = "+393347627817"; // <--- CAMBIA QUESTO NUMERO!
 
 const TARGET_CHAT_NAME = "IGMBC Community"; 
 let sock = null;
