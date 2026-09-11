@@ -17,14 +17,13 @@ const ultimoInvioUtente = {};
 const COOLDOWN_MINUTI = 30;
 
 async function connectToWhatsApp() {
-    // Sincronizza le versioni ufficiali per evitare l'errore di Noise Handshake
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     sock = makeWASocket({
         version,
         auth: state,
-        logger: pino({ level: 'silent' }), // Zittisce i log JSON rumorosi
+        logger: pino({ level: 'silent' }),
         browser: ['IGMBC Bot', 'Chrome', '1.0.0']
     });
 
@@ -33,12 +32,14 @@ async function connectToWhatsApp() {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // Stampa il QR code nel terminale quando richiesto
         if (qr) {
-            console.log('\n========================================');
-            console.log('📱 SCANSIONA IL QR CODE CON WHATSAPP:');
-            console.log('========================================\n');
+            console.log('\n==================================================');
+            console.log('🔗 OPZIONE 1: Copia questa stringa e incollala su https://scanqr.org');
+            console.log(qr);
+            console.log('==================================================');
+            console.log('📱 OPZIONE 2: Riduci lo zoom del browser (CTRL e -) per scansionare qui sotto:');
             qrcode.generate(qr, { small: true });
+            console.log('==================================================\n');
         }
 
         if (connection === 'open') {
@@ -67,7 +68,6 @@ async function connectToWhatsApp() {
             console.log(`🔌 Connessione chiusa (Status: ${statusCode}). Riconnessione...`);
 
             if (isLoggedOut) {
-                // Rimuove credenziali corrotte se sconnesso
                 fs.rmSync('auth_info_baileys', { recursive: true, force: true });
             }
             
