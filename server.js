@@ -1,6 +1,5 @@
 const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const express = require('express');
 const cors = require('cors');
 const pino = require('pino');
@@ -9,6 +8,9 @@ const fs = require('fs');
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// --- INSERISCI QUI IL TUO NUMERO WHATSAPP CON PREFISSO 39 SENZA '+' O SPAZI ---
+const NUMERO_TELEFONO = "393331234567"; // <--- CAMBIA QUESTO NUMERO!
 
 const TARGET_CHAT_NAME = "IGMBC Community"; 
 let sock = null;
@@ -24,23 +26,27 @@ async function connectToWhatsApp() {
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
-        browser: ['IGMBC Bot', 'Chrome', '1.0.0']
+        browser: ['Ubuntu', 'Chrome', '20.0.04']
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+    // Se non siamo registrati, richiediamo il Pairing Code a 8 cifre
+    if (!sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                const code = await sock.requestPairingCode(NUMERO_TELEFONO);
+                console.log('\n==================================================');
+                console.log(`🔑 IL TUO CODICE DI ACCOPPIAMENTO: ${code}`);
+                console.log('==================================================\n');
+            } catch (err) {
+                console.error('❌ Errore generazione Pairing Code:', err.message);
+            }
+        }, 5000);
+    }
 
-        if (qr) {
-            console.log('\n==================================================');
-            console.log('🔗 OPZIONE 1: Copia questa stringa e incollala su https://scanqr.org');
-            console.log(qr);
-            console.log('==================================================');
-            console.log('📱 OPZIONE 2: Riduci lo zoom del browser (CTRL e -) per scansionare qui sotto:');
-            qrcode.generate(qr, { small: true });
-            console.log('==================================================\n');
-        }
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
 
         if (connection === 'open') {
             console.log('\n========================================');
