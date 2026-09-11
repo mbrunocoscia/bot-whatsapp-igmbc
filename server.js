@@ -1,5 +1,6 @@
 const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const qrcode = require('qrcode-terminal');
 const express = require('express');
 const cors = require('cors');
 const pino = require('pino');
@@ -19,17 +20,26 @@ async function connectToWhatsApp() {
 
     sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Baileys stamperà il QR code automaticamente
         logger: pino({ level: 'fatal' })
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+
+        // Genera il QR code quando richiesto
+        if (qr) {
+            console.log('\n========================================');
+            console.log('📱 SCANSIONA QUESTO QR CODE CON WHATSAPP:');
+            console.log('========================================\n');
+            qrcode.generate(qr, { small: true });
+        }
 
         if (connection === 'open') {
+            console.log('\n========================================');
             console.log('✅ BOT WHATSAPP COLLEGATO E PRONTO!');
+            console.log('========================================\n');
             
             try {
                 const groupList = await sock.groupFetchAllParticipating();
@@ -49,7 +59,7 @@ async function connectToWhatsApp() {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                setTimeout(connectToWhatsApp, 5000);
+                setTimeout(connectToWhatsApp, 3000);
             }
         }
     });
