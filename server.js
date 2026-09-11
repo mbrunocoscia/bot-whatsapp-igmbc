@@ -1,9 +1,7 @@
 const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const express = require('express');
 const cors = require('cors');
-const pino = require('pino');
 
 const app = express();
 app.use(express.json());
@@ -20,7 +18,7 @@ async function connectToWhatsApp() {
 
     sock = makeWASocket({
         auth: state,
-        logger: pino({ level: 'fatal' })
+        browser: ["Ubuntu", "Chrome", "20.0.04"]
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -28,19 +26,14 @@ async function connectToWhatsApp() {
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        // Genera il QR code quando richiesto
         if (qr) {
-            console.log('\n========================================');
-            console.log('📱 SCANSIONA QUESTO QR CODE CON WHATSAPP:');
-            console.log('========================================\n');
-            qrcode.generate(qr, { small: true });
+            console.log('--- COPIA E INCOLLA IL TESTO SOTTO SU HTTP://SCANQR.ORG ---');
+            console.log(qr);
+            console.log('---------------------------------------------------------');
         }
 
         if (connection === 'open') {
-            console.log('\n========================================');
             console.log('✅ BOT WHATSAPP COLLEGATO E PRONTO!');
-            console.log('========================================\n');
-            
             try {
                 const groupList = await sock.groupFetchAllParticipating();
                 for (const id in groupList) {
@@ -57,8 +50,7 @@ async function connectToWhatsApp() {
 
         if (connection === 'close') {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
+            if (statusCode !== DisconnectReason.loggedOut) {
                 setTimeout(connectToWhatsApp, 3000);
             }
         }
