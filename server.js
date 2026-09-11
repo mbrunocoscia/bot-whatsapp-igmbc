@@ -3,6 +3,7 @@ const { useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/bai
 const qrcode = require('qrcode-terminal');
 const express = require('express');
 const cors = require('cors');
+const pino = require('pino');
 
 const app = express();
 app.use(express.json());
@@ -19,7 +20,7 @@ async function connectToWhatsApp() {
 
     sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false
+        logger: pino({ level: 'silent' }) // Disattiva i log spazzatura JSON
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -28,12 +29,16 @@ async function connectToWhatsApp() {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('📱 SCANSIONA IL QR CODE QUI SOTTO:');
+            console.log('\n========================================');
+            console.log('📱 SCANSIONA QUESTO QR CODE CON WHATSAPP:');
+            console.log('========================================\n');
             qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'open') {
-            console.log('✅ Bot WhatsApp collegato e pronto!');
+            console.log('\n========================================');
+            console.log('✅ BOT WHATSAPP COLLEGATO E PRONTO!');
+            console.log('========================================\n');
             
             try {
                 const groupList = await sock.groupFetchAllParticipating();
@@ -50,9 +55,12 @@ async function connectToWhatsApp() {
         }
 
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            console.log('🔌 Connessione chiusa. Riconnessione...', shouldReconnect);
-            if (shouldReconnect) connectToWhatsApp();
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            console.log('🔌 Connessione chiusa. Riconnessione in corso...');
+            if (shouldReconnect) {
+                setTimeout(connectToWhatsApp, 3000);
+            }
         }
     });
 }
