@@ -1,5 +1,5 @@
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
 const express = require('express');
 const cors = require('cors');
 const pino = require('pino');
@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(cors());
 
 // --- INSERISCI QUI IL TUO NUMERO WHATSAPP CON PREFISSO 39 SENZA '+' O SPAZI ---
-const NUMERO_TELEFONO = "+393347627817"; // <--- CAMBIA QUESTO NUMERO!
+const NUMERO_TELEFONO = "3347627817"; // <--- INSERISCI IL TUO NUMERO REALE
 
 const TARGET_CHAT_NAME = "IGMBC Community"; 
 let sock = null;
@@ -26,23 +26,23 @@ async function connectToWhatsApp() {
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
-        browser: ['Ubuntu', 'Chrome', '20.0.04']
+        browser: Browsers.macOS('Desktop'), // Simula perfettamente WhatsApp Web su Mac
+        markOnlineOnConnect: false
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Se non siamo registrati, richiediamo il Pairing Code a 8 cifre
     if (!sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
                 const code = await sock.requestPairingCode(NUMERO_TELEFONO);
                 console.log('\n==================================================');
-                console.log(`🔑 IL TUO CODICE DI ACCOPPIAMENTO: ${code}`);
+                console.log(`🔑 NUOVO CODICE DI ACCOPPIAMENTO: ${code}`);
                 console.log('==================================================\n');
             } catch (err) {
                 console.error('❌ Errore generazione Pairing Code:', err.message);
             }
-        }, 5000);
+        }, 6000);
     }
 
     sock.ev.on('connection.update', async (update) => {
@@ -73,8 +73,10 @@ async function connectToWhatsApp() {
             
             console.log(`🔌 Connessione chiusa (Status: ${statusCode}). Riconnessione...`);
 
-            if (isLoggedOut) {
-                fs.rmSync('auth_info_baileys', { recursive: true, force: true });
+            if (isLoggedOut || statusCode === 401) {
+                if (fs.existsSync('auth_info_baileys')) {
+                    fs.rmSync('auth_info_baileys', { recursive: true, force: true });
+                }
             }
             
             setTimeout(connectToWhatsApp, 3000);
